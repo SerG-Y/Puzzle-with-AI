@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Puzzle</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+<div id="loadFont" style="visibility: hidden; height: 0">For loading custom font</div>
+
+<canvas id="puzzle"></canvas>
+<div id="buttonDiv">
+    <button class="btn btn-success" id="solve">Solve</button>
+    <button class="btn btn-primary" id="reset">Reset</button>
+    <div>
+        <input type="radio" name="group1" value="3x3" checked>3x3<br>
+        <input type="radio" name="group1" value="4x4">4x4<br>
+    </div>
+</div>
+<script src="./dist/bundle.js"></script>
+</body>
+</html>
