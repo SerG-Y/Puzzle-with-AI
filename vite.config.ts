@@ -5,7 +5,10 @@ export default defineConfig({
   // (repo root, a /Puzzle-with-AI/ GitHub Pages subpath, or opened locally).
   base: './',
   build: {
-    outDir: 'dist',
+    // Output to docs/ so GitHub Pages can serve it directly
+    // (Settings -> Pages -> Source: branch master, folder /docs).
+    outDir: 'docs',
+    emptyOutDir: true,
     sourcemap: true,
   },
 })
