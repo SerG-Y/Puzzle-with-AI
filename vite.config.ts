@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite'
+import { svelte } from '@sveltejs/vite-plugin-svelte'
 
 export default defineConfig({
+  plugins: [svelte()],
   // Relative asset URLs so the build works from any path
   // (repo root, a /Puzzle-with-AI/ GitHub Pages subpath, or opened locally).
   base: './',

@@ -1,5 +1,5 @@
-import Rules from '../Rules'
-import State from '../State'
+import Rules from './Rules'
+import State from './State'
 
 /**
  * Iterative Deepening A*. Uses memory proportional to the solution length

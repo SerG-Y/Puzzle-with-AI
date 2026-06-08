@@ -5,13 +5,17 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "build": "svelte-check --tsconfig ./tsconfig.json && vite build",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
     "preview": "vite preview"
   },
   "keywords": [],
   "author": "Serhiy Yashchuk",
   "license": "ISC",
   "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.1.2",
+    "svelte": "^5.56.3",
+    "svelte-check": "^4.6.0",
     "typescript": "^6.0.3",
     "vite": "^8.0.16"
   }
