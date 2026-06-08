@@ -1,68 +1,27 @@
+/**
+ * A node in the search: an immutable board layout plus its search costs.
+ * `g`/`h` are mutable because the same layout is re-scored on each visit
+ * during iterative deepening.
+ */
 export default class State {
-    private field: Array<number>;
-    private hash: string;
-    private g: number;
-    private h: number;
-    private parent: State;
-    private size: number;
+    /** Stable key for the layout. Comma-separated so multi-digit tiles
+     *  (10..15 on a 4x4) can't collide, e.g. [1,12] vs [11,2]. */
+    readonly hash: string;
 
-    constructor(parent: State, size: number){
-        this.parent = parent;
-        this.size = size;
+    /** Cost from the start node. */
+    g = 0;
+    /** Heuristic estimate to the goal. */
+    h = 0;
+
+    constructor(
+        readonly field: readonly number[],
+        readonly parent: State | null = null,
+    ) {
+        this.hash = field.join(',');
     }
 
-    public getField(): Array<number> {
-        return this.field;
-    }
-
-    public setField(field: Array<number>): void {
-        this.field = field;
-        this.hash = this.getHashCode();
-    }
-
-    public equals(obj: Object): boolean {
-        if (obj == null || !(obj instanceof State))
-            return false;
-
-        return this.hash == obj.hashCode();
-    }
-
-    public hashCode(): string {
-        return this.hash;
-    }
-
-    public getF(): number {
+    /** Estimated total cost of a path through this node. */
+    get f(): number {
         return this.g + this.h;
-    }
-
-    public getG(): number {
-        return this.g;
-    }
-
-    public setG(g: number): void {
-        this.g = g;
-    }
-
-    public getH(): number {
-        return this.h;
-    }
-
-    public setH(h: number): void {
-        this.h = h;
-    }
-
-    public getParent(): State {
-        return this.parent;
-    }
-
-    public setParent(parent: State): void {
-        this.parent = parent;
-    }
-
-    private getHashCode(): string {
-        if (this.field == null)
-            return "0";
-
-        return this.field.join("");
     }
 }

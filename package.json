@@ -2,16 +2,17 @@
   "name": "puzzle-15",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "type": "module",
   "scripts": {
-    "start": "webpack webpack.config.js"
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
   },
   "keywords": [],
   "author": "Serhiy Yashchuk",
   "license": "ISC",
   "devDependencies": {
-    "awesome-typescript-loader": "^3.0.0-beta.10",
-    "typescript": "^2.1.4",
-    "webpack": "^2.1.0-beta.27"
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16"
   }
 }

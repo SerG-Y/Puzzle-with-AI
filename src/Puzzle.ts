@@ -1,244 +1,187 @@
+export type Direction = 'Top' | 'Bottom' | 'Left' | 'Right';
+
+interface Cell {
+    row: number;
+    col: number;
+}
+
+/** For each move, the neighbour of the blank that slides into it. */
+const SLIDE: Record<Direction, Cell> = {
+    Top: { row: -1, col: 0 },
+    Bottom: { row: 1, col: 0 },
+    Left: { row: 0, col: -1 },
+    Right: { row: 0, col: 1 },
+};
+
+const CANVAS_SIZE = 530;
+const SHUFFLE_MOVES = 50;
+
+/** Renders the sliding puzzle on a canvas and handles user moves. */
 export default class Puzzle {
-    private canvas: HTMLCanvasElement;
-    private ctx: CanvasRenderingContext2D;
-    private puzzle: Array<Array<number>> = [[1,2,3], [4,5,6], [7,8,0]];
-    private terminateState: Array<Array<number>> = [[1,2,3], [4,5,6], [7,8,0]];
-    private clicks: number = 0;
-    private countMix: number = 50;
-    private puzzleSize: number;
-    private size: number;
+    private readonly ctx: CanvasRenderingContext2D;
+    private readonly cellSize: number;
+    private readonly goal: number[][];
+    private board: number[][];
+    private clicks = 0;
 
-    constructor(canvas: HTMLCanvasElement, size: number) {
-        canvas.width  = 530;
-        canvas.height = 530;
-        this.canvas = canvas;
-        this.ctx = canvas.getContext("2d");
-        this.size = size;
-
-        if (size == 3) {
-            this.puzzle = [[1,2,3], [4,5,6], [7,8,0]];
-            this.terminateState = [[1,2,3], [4,5,6], [7,8,0]];
-        } else if (size == 4) {
-            this.puzzle = [[1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,0]];
-            this.terminateState = [[1,2,3,4],[5,6,7,8],[9,10,11,12],[13,14,15,0]];
+    constructor(
+        private readonly canvas: HTMLCanvasElement,
+        private readonly size: number,
+    ) {
+        const ctx = canvas.getContext('2d');
+        if (ctx === null) {
+            throw new Error('Could not get a 2D context for the puzzle canvas.');
         }
+        this.ctx = ctx;
 
-        this.puzzleSize = canvas.width / size;
+        canvas.width = CANVAS_SIZE;
+        canvas.height = CANVAS_SIZE;
+        this.cellSize = CANVAS_SIZE / size;
 
-        this.ctx.fillStyle = "#fafafa";
-        this.ctx.fillRect(0, 0, canvas.width, canvas.height);
-        this.mix(this.countMix);
-        this.draw();
+        this.goal = Puzzle.solvedBoard(size);
+        this.board = Puzzle.solvedBoard(size);
 
-        canvas.onclick = e => {
-            let x = (e.pageX - canvas.offsetLeft) / this.puzzleSize | 0;
-            let y = (e.pageY - canvas.offsetTop)  / this.puzzleSize | 0;
-            this.processEvent(x, y);
-        };
+        this.shuffle();
+        this.render();
 
-        canvas.ontouchend = e => {
-            let x = (e.touches[0].pageX - canvas.offsetLeft) / this.puzzleSize | 0;
-            let y = (e.touches[0].pageY - canvas.offsetTop)  / this.puzzleSize | 0;
-            this.processEvent(x, y);
+        canvas.onclick = (e) => this.onPointer(e.pageX, e.pageY);
+        canvas.ontouchend = (e) => {
+            const touch = e.changedTouches[0];
+            if (touch) {
+                this.onPointer(touch.pageX, touch.pageY);
+            }
         };
     }
 
-    public getField(): Array<number> {
-        let result: Array<number> = [];
-
-        for (let row of this.puzzle)
-            for(let el of row)
-                result.push(el)
-
-        return result;
+    /** The board flattened row-major, as the solver expects it. */
+    public getField(): number[] {
+        return this.board.flat();
     }
 
-    public setPuzzleView(x: number, y:number): void {
-        this.ctx.fillStyle = "#fff";
-        this.ctx.shadowColor = 'rgba(0, 0, 0, 0.117647)';
-        this.ctx.shadowBlur = 10;
-        this.ctx.shadowOffsetX = 2;
-        this.ctx.shadowOffsetY = 2;
-        this.ctx.fillRect(x + 1, y + 1, this.puzzleSize - 2, this.puzzleSize - 2);
-    }
-
-    public setFontPuzzle(): void {
-        this.ctx.font = (this.puzzleSize / 4) +"px Roboto";
-        this.ctx.shadowBlur = 0;
-        this.ctx.shadowOffsetX = 0;
-        this.ctx.shadowOffsetY = 0;
-        this.ctx.textAlign = "center";
-        this.ctx.textBaseline = "middle";
-        this.ctx.fillStyle = "#222";
-    }
-
-    public getClicks(): number {
-        return this.clicks;
-    }
-
-    public doAction(action: string): void {
-        switch (action) {
-            case 'Top': {
-                let coords: {x: number, y: number};
-                let nullCoords: {x: number, y: number} = this.getNullPuzzle();
-                coords = {
-                    x: nullCoords.x,
-                    y: nullCoords.y - 1
-                };
-
-                this.move(coords.x, coords.y);
-                this.ctx.fillStyle = "#fafafa";
-                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-                this.draw();
-
-                break;
-            }
-            case 'Bottom': {
-                let coords: {x: number, y: number};
-                let nullCoords: {x: number, y: number} = this.getNullPuzzle();
-                coords = {
-                    x: nullCoords.x,
-                    y: nullCoords.y + 1
-                };
-
-                this.move(coords.x, coords.y);
-                this.ctx.fillStyle = "#fafafa";
-                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-                this.draw();
-
-                break;
-            }
-            case 'Right': {
-                let coords: {x: number, y: number};
-                let nullCoords: {x: number, y: number} = this.getNullPuzzle();
-                coords = {
-                    x: nullCoords.x + 1,
-                    y: nullCoords.y
-                };
-
-                this.move(coords.x, coords.y);
-                this.ctx.fillStyle = "#fafafa";
-                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-                this.draw();
-
-                break;
-            }
-            case 'Left': {
-                let coords: {x: number, y: number};
-                let nullCoords: {x: number, y: number} = this.getNullPuzzle();
-                coords = {
-                    x: nullCoords.x - 1,
-                    y: nullCoords.y
-                };
-
-                this.move(coords.x, coords.y);
-                this.ctx.fillStyle = "#fafafa";
-                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-                this.draw();
-
-                break;
-            }
-
-        }
+    /** Slide a tile in the given direction (used to animate a solution). */
+    public doAction(direction: Direction): void {
+        const blank = this.blank();
+        const delta = SLIDE[direction];
+        this.move({ row: blank.row + delta.row, col: blank.col + delta.col });
+        this.render();
     }
 
     public resetPuzzle(): void {
-        this.ctx.fillStyle = "#fafafa";
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        this.mix(this.countMix);
-        this.draw();
+        this.shuffle();
+        this.render();
     }
 
-    private getNullPuzzle(): {x: number, y: number} {
-        for (let i = 0; i < this.puzzle.length; i++) {
-            for (let j = 0; j < this.puzzle[0].length; j++)
-                if (this.puzzle[i][j] === 0)
-                    return {x: j, y: i}
+    private static solvedBoard(size: number): number[][] {
+        const total = size * size;
+        const board: number[][] = [];
+        for (let row = 0; row < size; row++) {
+            const cells: number[] = [];
+            for (let col = 0; col < size; col++) {
+                // 1, 2, ... total - 1, then 0 (the blank) in the last cell.
+                cells.push((row * size + col + 1) % total);
+            }
+            board.push(cells);
         }
+        return board;
     }
 
-    private isWin(): boolean {
-        for (let i = 0; i < this.puzzle.length; i++) {
-            for (let j = 0; j < this.puzzle[0].length; j++)
-                if (this.puzzle[i][j] != this.terminateState[i][j])
-                    return false;
+    private blank(): Cell {
+        for (let row = 0; row < this.size; row++) {
+            for (let col = 0; col < this.size; col++) {
+                if (this.board[row][col] === 0) {
+                    return { row, col };
+                }
+            }
         }
+        throw new Error('Board has no blank cell.');
+    }
 
+    private inBounds(cell: Cell): boolean {
+        return cell.row >= 0 && cell.row < this.size && cell.col >= 0 && cell.col < this.size;
+    }
+
+    /** Swap the tile at `cell` into the blank, if they are adjacent. */
+    private move(cell: Cell): boolean {
+        if (!this.inBounds(cell)) {
+            return false;
+        }
+        const blank = this.blank();
+        const adjacent = Math.abs(cell.row - blank.row) + Math.abs(cell.col - blank.col) === 1;
+        if (!adjacent) {
+            return false;
+        }
+        this.board[blank.row][blank.col] = this.board[cell.row][cell.col];
+        this.board[cell.row][cell.col] = 0;
+        this.clicks++;
         return true;
     }
 
-    private processEvent(x: number, y: number): void {
-        this.move(x, y);
-        this.ctx.fillStyle = "#fafafa";
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        this.draw();
-        if (this.isWin()) { // если головоломка сложена, то пятнашки заново перемешиваются
-            console.log(`You win for ${this.clicks} clicks`);
-            /*field.mix(300);
-            context.fillStyle = "#222";
-            context.fillRect(0, 0, canvas.width, canvas.height);
-            field.draw(context, cellSize);*/
+    private shuffle(): void {
+        for (let i = 0; i < SHUFFLE_MOVES; i++) {
+            const blank = this.blank();
+            const candidates = (Object.keys(SLIDE) as Direction[])
+                .map((dir) => ({ row: blank.row + SLIDE[dir].row, col: blank.col + SLIDE[dir].col }))
+                .filter((cell) => this.inBounds(cell));
+            this.move(candidates[Math.floor(Math.random() * candidates.length)]);
+        }
+        this.clicks = 0;
+    }
+
+    private isWin(): boolean {
+        for (let row = 0; row < this.size; row++) {
+            for (let col = 0; col < this.size; col++) {
+                if (this.board[row][col] !== this.goal[row][col]) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private onPointer(pageX: number, pageY: number): void {
+        const col = Math.floor((pageX - this.canvas.offsetLeft) / this.cellSize);
+        const row = Math.floor((pageY - this.canvas.offsetTop) / this.cellSize);
+        if (this.move({ row, col })) {
+            this.render();
+            if (this.isWin()) {
+                console.log(`You win for ${this.clicks} clicks`);
+            }
         }
     }
 
-    private move(x: number, y: number): void {
-        let nullCoords: {x: number, y: number} = this.getNullPuzzle();
+    private render(): void {
+        this.ctx.fillStyle = '#fafafa';
+        this.ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
-        if (((x - 1 == nullCoords.x || x + 1 == nullCoords.x) && y == nullCoords.y) ||
-            ((y - 1 == nullCoords.y || y + 1 == nullCoords.y) && x == nullCoords.x)) {
-            this.puzzle[nullCoords.y][nullCoords.x] = this.puzzle[y][x];
-            this.puzzle[y][x] = 0;
-            this.clicks++;
-        }
-    }
-
-    private draw(): void {
-        for (let i = 0; i < this.puzzle.length; i++) {
-            for (let j = 0; j < this.puzzle[0].length; j++) {
-                if (this.puzzle[i][j] > 0) {
-                    if (this.setPuzzleView !== null)
-                        this.setPuzzleView(j * this.puzzleSize, i * this.puzzleSize);
-
-                    if (this.setFontPuzzle !== null) {
-                        this.setFontPuzzle();
-                        this.ctx.fillText(this.puzzle[i][j].toString(), j * this.puzzleSize + this.puzzleSize / 2,
-                            i * this.puzzleSize + this.puzzleSize / 2);
-                    }
+        for (let row = 0; row < this.size; row++) {
+            for (let col = 0; col < this.size; col++) {
+                const value = this.board[row][col];
+                if (value > 0) {
+                    this.drawTile(value, row, col);
                 }
             }
         }
     }
 
-    private mix(stepCount: number): void {
-        for (let i = 0; i < stepCount; i++) {
-            let coords: {x: number, y: number} = {x: null, y: null};
-            let nullCoords: {x: number, y: number} = this.getNullPuzzle();
-            let hMove = Math.random() >= 0.5;
-            let upLeft = Math.random() >= 0.5;
+    private drawTile(value: number, row: number, col: number): void {
+        const x = col * this.cellSize;
+        const y = row * this.cellSize;
+        const ctx = this.ctx;
 
-            if (!hMove && !upLeft) {
-                coords.y = nullCoords.y;
-                coords.x = nullCoords.x - 1;
-            }
+        ctx.fillStyle = '#fff';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.117647)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetX = 2;
+        ctx.shadowOffsetY = 2;
+        ctx.fillRect(x + 1, y + 1, this.cellSize - 2, this.cellSize - 2);
 
-            if (hMove && !upLeft) {
-                coords.x = nullCoords.x;
-                coords.y = nullCoords.y + 1;
-            }
-
-            if (!hMove && upLeft) {
-                coords.y = nullCoords.y;
-                coords.x = nullCoords.x + 1;
-            }
-            if (hMove && upLeft) {
-                coords.x = nullCoords.x;
-                coords.y = nullCoords.y - 1;
-            }
-            if (0 <= coords.x && coords.x <= (this.size - 1) && 0 <= coords.y && coords.y <= (this.size - 1)) {
-                this.move(coords.x, coords.y);
-            }
-        }
-
-        this.clicks = 0;
-    };
+        ctx.font = `${this.cellSize / 4}px Roboto`;
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#222';
+        ctx.fillText(String(value), x + this.cellSize / 2, y + this.cellSize / 2);
+    }
 }
